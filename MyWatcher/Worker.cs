@@ -1,5 +1,7 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using MyWatcher.Models;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -12,10 +14,12 @@ namespace MyWatcher
     public class Worker : BackgroundService
     {
         private readonly ILogger<Worker> _logger;
+        private readonly DbHelper dbHelper;
 
         public Worker(ILogger<Worker> logger)
         {
             _logger = logger;
+            dbHelper = new DbHelper();
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -26,7 +30,7 @@ namespace MyWatcher
                 await Task.Delay(1000, stoppingToken);
 
                 FileSystemWatcher watcher = new FileSystemWatcher();
-                watcher.Path = @"C:\Users\gtsolakidis\Documents\Folder";
+                watcher.Path = @"C:\Users\gtsolakidis\Documents\Folder\Input";
 
                 watcher.NotifyFilter = NotifyFilters.Attributes | NotifyFilters.CreationTime | NotifyFilters.FileName | NotifyFilters.Size;
 
@@ -35,7 +39,7 @@ namespace MyWatcher
                 // Register Event Handler
                 watcher.Changed += new FileSystemEventHandler(onChanged);
                 watcher.Created += new FileSystemEventHandler(onChanged);
-                watcher.Deleted += new FileSystemEventHandler(onChanged);
+               // watcher.Deleted += new FileSystemEventHandler(onChanged);
                 watcher.Renamed += new RenamedEventHandler(onRenamed);
 
                 // Start monitoring
@@ -47,31 +51,60 @@ namespace MyWatcher
         {
             Console.WriteLine(e.Name + " is " + e.ChangeType);
 
+            //if (e.ChangeType == WatcherChangeTypes.Created)
+            //{
+            //    string targetPath = "";
+            //    if (Path.GetExtension(e.FullPath.ToString()) == ".csv")
+            //    {
+            //        targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\CSV";
+            //    }
+            //    else if (Path.GetExtension(e.FullPath.ToString()) == ".txt")
+            //    {
+            //        targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\Text";
+            //    }
+            //    else if (Path.GetExtension(e.FullPath.ToString()) == ".json")
+            //    {
+            //        targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\JSON";
+            //    }
+
+            //    targetPath = Path.Combine(targetPath, Path.GetFileName(e.FullPath.ToString()));
+            //    File.Copy(e.FullPath.ToString(), targetPath, true);
+
+            //    if (File.Exists(targetPath))
+            //    {
+            //        File.Delete(e.FullPath.ToString());
+            //    }
+
+            //    Console.WriteLine(e.Name + " File moved successuflly to Editor folder");
+            //}
+
             if (e.ChangeType == WatcherChangeTypes.Created)
             {
-                string targetPath = "";
-                if (Path.GetExtension(e.FullPath.ToString()) == ".csv")
+                var fileHelper = new FileHelper();
+
+                var data = fileHelper.ReadCSVFile(e.FullPath.ToString());
+
+                List<OrderFromDB> ordersFromDB = dbHelper.GetAllOrders();
+
+                var editData = new List<NewOrder>();
+
+                for (int i = 0; i < data.Count; i++)
                 {
-                    targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\CSV";
-                }
-                else if (Path.GetExtension(e.FullPath.ToString()) == ".txt")
-                {
-                    targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\Text";
-                }
-                else if (Path.GetExtension(e.FullPath.ToString()) == ".json")
-                {
-                    targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\JSON";
+                    foreach (OrderFromDB order in ordersFromDB)
+                    {
+                        if (data[i].OrderNumber == order.Id)
+                        {
+                            editData[i].OrderNumber = order.Id;
+                            editData[i].CustomerName = order.CustomerName;
+                            editData[i].Fees = order.Fees;
+                            editData[i].OrderStatus = order.OrderStatus;
+                        }
+                    }
                 }
 
-                targetPath = Path.Combine(targetPath, Path.GetFileName(e.FullPath.ToString()));
-                File.Copy(e.FullPath.ToString(), targetPath, true);
-
-                if (File.Exists(targetPath))
-                {
-                    File.Delete(e.FullPath.ToString());
-                }
-
-                Console.WriteLine(e.Name + " File moved successuflly to Editor folder");
+                fileHelper.WriteCSVFile(@"C:\Users\gtsolakidis\Documents\Folder\Output", editData);
+                string targetPath = Path.Combine(@"C:\Users\gtsolakidis\Documents\Folder\Archive\", Path.GetFileName(e.FullPath.ToString()));
+                File.Move(e.FullPath.ToString(), targetPath);
             }
         }
 
