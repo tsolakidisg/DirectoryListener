@@ -27,7 +27,7 @@ namespace MyWatcher
             while (!stoppingToken.IsCancellationRequested)
             {
                 _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
-                await Task.Delay(1000, stoppingToken);
+                await Task.Delay(15000, stoppingToken);
 
                 FileSystemWatcher watcher = new FileSystemWatcher();
                 watcher.Path = @"C:\Users\gtsolakidis\Documents\Folder\Input";
@@ -39,8 +39,6 @@ namespace MyWatcher
                 // Register Event Handler
                 watcher.Changed += new FileSystemEventHandler(onChanged);
                 watcher.Created += new FileSystemEventHandler(onChanged);
-               // watcher.Deleted += new FileSystemEventHandler(onChanged);
-                watcher.Renamed += new RenamedEventHandler(onRenamed);
 
                 // Start monitoring
                 watcher.EnableRaisingEvents = true;
@@ -50,33 +48,6 @@ namespace MyWatcher
         public void onChanged(object source, FileSystemEventArgs e)
         {
             Console.WriteLine(e.Name + " is " + e.ChangeType);
-
-            //if (e.ChangeType == WatcherChangeTypes.Created)
-            //{
-            //    string targetPath = "";
-            //    if (Path.GetExtension(e.FullPath.ToString()) == ".csv")
-            //    {
-            //        targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\CSV";
-            //    }
-            //    else if (Path.GetExtension(e.FullPath.ToString()) == ".txt")
-            //    {
-            //        targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\Text";
-            //    }
-            //    else if (Path.GetExtension(e.FullPath.ToString()) == ".json")
-            //    {
-            //        targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\JSON";
-            //    }
-
-            //    targetPath = Path.Combine(targetPath, Path.GetFileName(e.FullPath.ToString()));
-            //    File.Copy(e.FullPath.ToString(), targetPath, true);
-
-            //    if (File.Exists(targetPath))
-            //    {
-            //        File.Delete(e.FullPath.ToString());
-            //    }
-
-            //    Console.WriteLine(e.Name + " File moved successuflly to Editor folder");
-            //}
 
             if (e.ChangeType == WatcherChangeTypes.Created)
             {
@@ -94,40 +65,19 @@ namespace MyWatcher
                     {
                         if (data[i].OrderNumber == order.Id)
                         {
-                            editData[i].OrderNumber = order.Id;
-                            editData[i].CustomerName = order.CustomerName;
-                            editData[i].Fees = order.Fees;
-                            editData[i].OrderStatus = order.OrderStatus;
+                            editData.Add(new NewOrder(order.Id, data[i].CustomerName, order.Fees, order.OrderStatus));
                         }
                     }
                 }
 
-                fileHelper.WriteCSVFile(@"C:\Users\gtsolakidis\Documents\Folder\Output", editData);
+                string editPath = Path.Combine(@"C:\Users\gtsolakidis\Documents\Folder\Output", Path.GetFileName(e.FullPath.ToString()));
+                fileHelper.WriteCSVFile(editPath, editData);
+                Console.WriteLine(e.Name + " has been edited.");
+
                 string targetPath = Path.Combine(@"C:\Users\gtsolakidis\Documents\Folder\Archive\", Path.GetFileName(e.FullPath.ToString()));
                 File.Move(e.FullPath.ToString(), targetPath);
+                Console.WriteLine(e.Name + " has been archived.");
             }
-        }
-
-        public void onRenamed(object source, RenamedEventArgs e)
-        {
-            string targetPath = "";
-            if (Path.GetExtension(e.FullPath.ToString()) == ".csv")
-            {
-                targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\CSV";
-            }
-            else if (Path.GetExtension(e.FullPath.ToString()) == ".txt")
-            {
-                targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\Text";
-            }
-            else if (Path.GetExtension(e.FullPath.ToString()) == ".json")
-            {
-                targetPath = @"C:\Users\gtsolakidis\Documents\Folder\Editor\JSON";
-            }
-
-            targetPath = Path.Combine(targetPath, Path.GetFileName(e.FullPath.ToString()));
-            File.Copy(e.FullPath.ToString(), targetPath, true);
-
-            Console.WriteLine(e.OldName + " is changed as " + e.Name);
         }
     }
 }

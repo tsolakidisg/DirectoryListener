@@ -7,6 +7,7 @@ using MyWatcher;
 using System.Linq;
 using MyWatcher.Models;
 using MyWatcher.Mappers;
+using System.Threading;
 
 namespace MyWatcher
 {
@@ -14,6 +15,10 @@ namespace MyWatcher
     {
         public List<Order> ReadCSVFile(string location)
         {
+            while(IsFileInUse(new FileInfo(location)))
+            {
+                Thread.Sleep(5000);
+            }
             try
             {
                 using (var reader = new StreamReader(location, Encoding.Default))
@@ -26,7 +31,7 @@ namespace MyWatcher
             }
             catch (Exception e)
             {
-
+                
                 throw new Exception(e.Message);
             }
         }
@@ -44,6 +49,27 @@ namespace MyWatcher
                     csvWriter.NextRecord();
                 }
             }
+        }
+
+        public bool IsFileInUse(FileInfo file)
+        {
+            FileStream stream = null;
+            try
+            {
+                stream = file.Open(FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException)
+            {
+                return true;
+            }
+            finally
+            {
+                if (stream != null)
+                {
+                    stream.Close();
+                }
+            }
+            return false;
         }
     }
 }
